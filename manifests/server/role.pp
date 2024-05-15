@@ -26,6 +26,7 @@
 # @param instance The name of the Postgresql database instance.
 define postgresql::server::role (
   Boolean                                     $update_password  = true,
+  String                                      $shadow_view      = 'pg_shadow',
   Variant[Boolean, String, Sensitive[String]] $password_hash    = false,
   Boolean                                     $createdb         = false,
   Boolean                                     $createrole       = false,
@@ -170,14 +171,15 @@ define postgresql::server::role (
       }
       if $pwd_hash_sql =~ Deferred {
         $pw_command = Deferred('sprintf', ["ALTER ROLE \"%s\" ENCRYPTED PASSWORD '%s'", $username, $pwd_hash_sql])
-        $unless_pw_command = Deferred('sprintf', ["SELECT 1 FROM pg_shadow WHERE usename = '%s' AND passwd = '%s'",
+        $unless_pw_command = Deferred('sprintf', ["SELECT 1 FROM %s WHERE usename = '%s' AND passwd = '%s'",
+            $shadow_view,
             $username,
             $pwd_hash_sql,
           ]
         )
       } else {
         $pw_command = "ALTER ROLE \"${username}\" ENCRYPTED PASSWORD '${pwd_hash_sql}'"
-        $unless_pw_command = "SELECT 1 FROM pg_shadow WHERE usename = '${username}' AND passwd = '${pwd_hash_sql}'"
+        $unless_pw_command = "SELECT 1 FROM ${shadow_view} WHERE usename = '${username}' AND passwd = '${pwd_hash_sql}'"
       }
       postgresql_psql { "ALTER ROLE ${username} ENCRYPTED PASSWORD ****":
         command   => Sensitive($pw_command),
